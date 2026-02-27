@@ -12,12 +12,11 @@ Get USER_ID and CHANNEL from the current session (e.g., `8281248569` and `telegr
 
 **Do NOT just write reminders to MEMORY.md** — that won't trigger actual notifications.
 
-## Heartbeat Tasks
+## Recurring Tasks
 
-`HEARTBEAT.md` is checked every 30 minutes. Use file tools to manage periodic tasks:
+When the user asks for a recurring/periodic task, use the `cron` tool with a cron expression:
+```
+cron add --name "task" --message "Your message" --cron "0 9 * * *" --tz "America/New_York" --deliver --to "USER_ID" --channel "CHANNEL"
+```
 
-- **Add**: `edit_file` to append new tasks
-- **Remove**: `edit_file` to delete completed tasks
-- **Rewrite**: `write_file` to replace all tasks
-
-When the user asks for a recurring/periodic task, update `HEARTBEAT.md` instead of creating a one-time cron reminder.
+Common cron expressions: `0 9 * * *` (daily 9 AM), `0 9 * * 1` (every Monday 9 AM), `0 */6 * * *` (every 6 hours).

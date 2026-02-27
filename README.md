@@ -982,25 +982,6 @@ nanobot cron remove <job_id>
 
 </details>
 
-<details>
-<summary><b>Heartbeat (Periodic Tasks)</b></summary>
-
-The gateway wakes up every 30 minutes and checks `HEARTBEAT.md` in your workspace (`~/.nanobot/workspace/HEARTBEAT.md`). If the file has tasks, the agent executes them and delivers results to your most recently active chat channel.
-
-**Setup:** edit `~/.nanobot/workspace/HEARTBEAT.md` (created automatically by `nanobot onboard`):
-
-```markdown
-## Periodic Tasks
-
-- [ ] Check weather forecast and send a summary
-- [ ] Scan inbox for urgent emails
-```
-
-The agent can also manage this file itself — ask it to "add a periodic task" and it will update `HEARTBEAT.md` for you.
-
-> **Note:** The gateway must be running (`nanobot gateway`) and you must have chatted with the bot at least once so it knows which channel to deliver to.
-
-</details>
 
 ## 🐳 Docker
 
@@ -1109,7 +1090,6 @@ nanobot/
 ├── channels/       # 📱 Chat channel integrations
 ├── bus/            # 🚌 Message routing
 ├── cron/           # ⏰ Scheduled tasks
-├── heartbeat/      # 💓 Proactive wake-up
 ├── providers/      # 🤖 LLM providers (OpenRouter, etc.)
 ├── session/        # 💬 Conversation sessions
 ├── config/         # ⚙️ Configuration

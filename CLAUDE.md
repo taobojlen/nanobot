@@ -70,7 +70,7 @@ Chat Channel → MessageBus (inbound queue) → AgentLoop → LLM + Tools → Me
 
 **`nanobot/config/schema.py`** — Pydantic models with `alias_generator=to_camel` (accepts both camelCase and snake_case). Root `Config` class uses `pydantic-settings` with `env_prefix="NANOBOT_"` and `env_nested_delimiter="__"`. Config file lives at `~/.nanobot/config.json`.
 
-**`nanobot/cron/`** and **`nanobot/heartbeat/`** — Cron runs scheduled tasks via the agent. Heartbeat wakes every 30 minutes and runs tasks defined in `workspace/HEARTBEAT.md`.
+**`nanobot/cron/`** — Cron runs scheduled tasks via the agent. Supports one-time (`at`), interval (`every`), and cron-expression (`cron`) schedules with timezone support.
 
 **`bridge/`** — Node.js WhatsApp bridge (separate process). Packaged into the wheel under `nanobot/bridge/` via `force-include` in `pyproject.toml`.
 
@@ -83,7 +83,6 @@ workspace/
 │   └── HISTORY.md     # Grep-searchable conversation log
 ├── sessions/          # Per-channel JSONL session files
 ├── skills/            # User-installed custom skills
-├── HEARTBEAT.md       # Periodic tasks (run every 30 min)
 ├── AGENTS.md          # Agent personality/instructions
 └── SOUL.md / USER.md / TOOLS.md / IDENTITY.md  # Optional bootstrap files
 ```
