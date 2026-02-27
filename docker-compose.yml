@@ -19,6 +19,8 @@ services:
     <<: *common-config
     command: ["gateway"]
     restart: unless-stopped
+    logging:
+      driver: local
     ports:
       - 18790:18790
     deploy:
