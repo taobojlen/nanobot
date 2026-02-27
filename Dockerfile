@@ -14,21 +14,23 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Install Python dependencies first (cached layer)
+# Install Python dependencies (cached until pyproject.toml changes)
 COPY pyproject.toml README.md LICENSE ./
 RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
     uv pip install --system --no-cache . && \
     rm -rf nanobot bridge
 
-# Copy the full source and install
-COPY nanobot/ nanobot/
-COPY bridge/ bridge/
-RUN uv pip install --system --no-cache .
-
-# Build the WhatsApp bridge
+# Build the WhatsApp bridge (rarely changes — keep before Python source)
+COPY bridge/package.json bridge/
 WORKDIR /app/bridge
-RUN npm install && npm run build
+RUN npm install
+COPY bridge/ bridge/
+RUN npm run build
 WORKDIR /app
+
+# Copy Python source and install (changes often)
+COPY nanobot/ nanobot/
+RUN uv pip install --system --no-cache .
 
 # Create config directory
 RUN mkdir -p /root/.nanobot
