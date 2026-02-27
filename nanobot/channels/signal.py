@@ -156,13 +156,14 @@ class SignalChannel(BaseChannel):
         we use it directly; otherwise we look for the basename in our signal-data
         attachments directory.  This avoids hardcoding any signal-cli internal paths.
         """
-        raw = att.get("filename") or att.get("id") or ""
+        # id is the actual storage name on disk; filename is user-facing only.
+        raw = att.get("id") or att.get("filename") or ""
         if not raw:
             return None
         p = Path(str(raw))
         if p.is_absolute() and p.exists():
             return p
-        # Fall back: find by basename in our signal-data attachments dir.
+        # Fall back: find by basename (id) in our signal-data attachments dir.
         return self._signal_data_root / "attachments" / p.name
 
     def _receive_path(self) -> str:
