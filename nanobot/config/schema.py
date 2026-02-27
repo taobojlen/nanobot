@@ -195,6 +195,7 @@ class SignalConfig(Base):
     mode: str = "auto"  # "auto" | "websocket" (json-rpc) | "polling" (normal/native)
     poll_interval: float = 2.0  # Polling interval in seconds (used in polling mode)
     typing_indicator: bool = True  # Show typing indicator while processing messages
+    data_path: str = ""  # Path to signal-cli data dir; defaults to ~/.nanobot/signal-data
 
 
 class ChannelsConfig(Base):

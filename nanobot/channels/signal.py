@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -14,6 +15,7 @@ from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.schema import SignalConfig
+
 
 _MAX_CHUNK = 2000
 
@@ -139,6 +141,30 @@ class SignalChannel(BaseChannel):
     # Internal helpers
     # ------------------------------------------------------------------ #
 
+    @property
+    def _signal_data_root(self) -> Path:
+        """Return the signal-cli data directory visible to nanobot."""
+        if self.config.data_path:
+            return Path(self.config.data_path).expanduser()
+        return Path.home() / ".nanobot" / "signal-data"
+
+    def _resolve_att_path(self, att: dict) -> Path | None:
+        """Resolve the on-disk path of a signal-cli attachment dict.
+
+        signal-cli may supply an absolute path (native/polling mode) or just an
+        id string (json-rpc/WebSocket mode).  If the absolute path already exists
+        we use it directly; otherwise we look for the basename in our signal-data
+        attachments directory.  This avoids hardcoding any signal-cli internal paths.
+        """
+        raw = att.get("filename") or att.get("id") or ""
+        if not raw:
+            return None
+        p = Path(str(raw))
+        if p.is_absolute() and p.exists():
+            return p
+        # Fall back: find by basename in our signal-data attachments dir.
+        return self._signal_data_root / "attachments" / p.name
+
     def _receive_path(self) -> str:
         """URL-encoded path segment for the registered phone number."""
         return quote(self.config.phone_number, safe="")
@@ -244,31 +270,47 @@ class SignalChannel(BaseChannel):
 
         # Signal protocol stores messages >~2000 chars as a text/x-signal-plain attachment.
         # The body field is truncated; read the attachment file for the full text.
+        # Other attachments (images, files) are collected and forwarded as media paths.
         attachments = data_msg.get("attachments") or []
         if attachments:
             logger.debug("Signal: message has {} attachment(s): {}", len(attachments), attachments)
+        media_paths: list[str] = []
         for att in attachments:
-            if att.get("contentType") == "text/x-signal-plain":
-                # filename is None in json-rpc mode; fall back to id-based path
-                att_path = att.get("filename") or att.get("id") or ""
-                logger.info("Signal: long message detected, text attachment id={} filename={}", att.get("id"), att.get("filename"))
-                if att_path:
-                    from pathlib import Path as _Path
-                    p = _Path(att_path)
-                    if not p.is_absolute():
-                        p = _Path("/root/.nanobot/signal-data/attachments") / p.name
-                    else:
-                        p = _Path(att_path.replace("/home/.local/share/signal-cli", "/root/.nanobot/signal-data", 1))
+            content_type: str = att.get("contentType") or ""
+            if content_type == "text/x-signal-plain":
+                # Long message stored as a plain-text attachment; replace truncated body.
+                logger.info(
+                    "Signal: long message detected, text attachment id={} filename={}",
+                    att.get("id"), att.get("filename"),
+                )
+                p = self._resolve_att_path(att)
+                if p:
                     logger.info("Signal: reading full message text from {}", p)
                     try:
                         full_text = p.read_text(encoding="utf-8").strip()
                         if full_text:
-                            logger.info("Signal: replaced truncated body ({} chars) with full text ({} chars)",
-                                        len(body), len(full_text))
+                            logger.info(
+                                "Signal: replaced truncated body ({} chars) with full text ({} chars)",
+                                len(body), len(full_text),
+                            )
                             body = full_text
                     except Exception as e:
                         logger.warning("Signal: failed to read text attachment {}: {}", p, e)
-                break
+            else:
+                # User-sent file or image.
+                p = self._resolve_att_path(att)
+                raw_name = att.get("filename") or att.get("id") or "attachment"
+                name = Path(str(raw_name)).name
+                logger.info("Signal: user attachment {} ({}) -> {}", name, content_type, p)
+                if p and p.exists():
+                    media_paths.append(str(p))
+                    body = (body + "\n" if body else "") + f"[attachment: {name} ({content_type}) at {p}]"
+                else:
+                    logger.warning("Signal: attachment file not found: {}", p)
+                    body = (body + "\n" if body else "") + f"[attachment: {name} ({content_type}) — file not accessible]"
+
+        if not body and media_paths:
+            body = "[attachment received]"
 
         if not body:
             return
@@ -291,6 +333,7 @@ class SignalChannel(BaseChannel):
             sender_id=source,
             chat_id=chat_id,
             content=body,
+            media=media_paths or None,
             metadata={
                 "source_name": source_name,
                 "timestamp": envelope.get("timestamp"),
