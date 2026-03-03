@@ -131,10 +131,26 @@ class CronTool(Tool):
         return f"Created job '{job.name}' (id: {job.id})"
 
     def _list_jobs(self) -> str:
+        from datetime import datetime
+
         jobs = self._cron.list_jobs()
         if not jobs:
             return "No scheduled jobs."
-        lines = [f"- {j.name} (id: {j.id}, {j.schedule.kind})" for j in jobs]
+        lines = []
+        for j in jobs:
+            s = j.schedule
+            if s.kind == "cron":
+                schedule_str = f"cron '{s.expr}'" + (f" ({s.tz})" if s.tz else "")
+            elif s.kind == "every":
+                schedule_str = f"every {s.every_ms // 1000}s"
+            else:
+                schedule_str = f"at {s.at_ms}"
+            if j.state.next_run_at_ms:
+                next_run = datetime.fromtimestamp(j.state.next_run_at_ms / 1000).strftime(
+                    "%Y-%m-%d %H:%M %Z"
+                )
+                schedule_str += f", next: {next_run}"
+            lines.append(f"- {j.name} (id: {j.id}, {schedule_str})")
         return "Scheduled jobs:\n" + "\n".join(lines)
 
     def _update_job(
