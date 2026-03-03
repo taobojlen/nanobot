@@ -121,16 +121,49 @@ class LiteLLMProvider(LLMProvider):
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]] | None]:
-        """Return copies of messages and tools with cache_control injected."""
+        """Return copies of messages and tools with cache_control injected.
+
+        Two breakpoints are set:
+        1. System message — stable across all turns.
+        2. Last history message (just before the runtime-context user message) —
+           caches the growing conversation history so only the current turn is
+           sent uncached each request.
+        """
+        # Find the runtime-context sentinel message to locate the history boundary.
+        runtime_ctx_idx = next(
+            (
+                i for i, m in enumerate(messages)
+                if m.get("role") == "user"
+                and isinstance(m.get("content"), str)
+                and m["content"].startswith("[Runtime Context")
+            ),
+            None,
+        )
+
+        # Walk backwards from the runtime context to find the last history message
+        # with cacheable (non-None, non-empty) content.
+        history_end_idx: int | None = None
+        if runtime_ctx_idx and runtime_ctx_idx > 1:
+            for i in range(runtime_ctx_idx - 1, 0, -1):
+                content = messages[i].get("content")
+                if content:
+                    history_end_idx = i
+                    break
+
+        cache_indices = {i for i in (0, history_end_idx) if i is not None}
+
         new_messages = []
-        for msg in messages:
-            if msg.get("role") == "system":
+        for i, msg in enumerate(messages):
+            if i in cache_indices:
                 content = msg["content"]
                 if isinstance(content, str):
                     new_content = [{"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}]
-                else:
+                elif isinstance(content, list):
                     new_content = list(content)
                     new_content[-1] = {**new_content[-1], "cache_control": {"type": "ephemeral"}}
+                else:
+                    new_messages.append(msg)
+                    continue
                 new_messages.append({**msg, "content": new_content})
             else:
                 new_messages.append(msg)
