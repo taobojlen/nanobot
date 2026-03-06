@@ -323,11 +323,16 @@ def gateway(
     # Set cron callback (needs agent)
     async def on_cron_job(job: CronJob) -> str | None:
         """Execute a cron job through the agent."""
+        channel = job.payload.channel or "cli"
+        chat_id = job.payload.to or "direct"
+        # Use the recipient's session so cron output appears in their conversation
+        # history. This lets the user reply to cron messages with shared context.
+        session_key = f"{channel}:{chat_id}"
         response = await agent.process_direct(
-            job.payload.message,
-            session_key=f"cron:{job.id}",
-            channel=job.payload.channel or "cli",
-            chat_id=job.payload.to or "direct",
+            f"[Scheduled task: {job.name}]\n\n{job.payload.message}",
+            session_key=session_key,
+            channel=channel,
+            chat_id=chat_id,
         )
         if job.payload.deliver and job.payload.to:
             from nanobot.bus.events import OutboundMessage
