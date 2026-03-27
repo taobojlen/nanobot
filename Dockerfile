@@ -24,7 +24,9 @@ RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
 COPY bridge/package.json bridge/
 WORKDIR /app/bridge
 RUN npm install
+WORKDIR /app
 COPY bridge/ bridge/
+WORKDIR /app/bridge
 RUN npm run build
 WORKDIR /app
 
