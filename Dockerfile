@@ -20,17 +20,17 @@ RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
     uv pip install --system --no-cache . && \
     rm -rf nanobot bridge
 
-# Copy the full source and install
-COPY nanobot/ nanobot/
-COPY bridge/ bridge/
-RUN uv pip install --system --no-cache .
-
-# Build the WhatsApp bridge
-RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-
+# Build the WhatsApp bridge (rarely changes — keep before Python source)
+COPY bridge/package.json bridge/
 WORKDIR /app/bridge
-RUN npm install && npm run build
+RUN npm install
+COPY bridge/ bridge/
+RUN npm run build
 WORKDIR /app
+
+# Copy Python source and install (changes often)
+COPY nanobot/ nanobot/
+RUN uv pip install --system --no-cache .
 
 # Create config directory
 RUN mkdir -p /root/.nanobot
@@ -38,5 +38,6 @@ RUN mkdir -p /root/.nanobot
 # Gateway default port
 EXPOSE 18790
 
-ENTRYPOINT ["nanobot"]
+COPY entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["status"]

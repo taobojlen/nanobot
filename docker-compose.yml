@@ -2,8 +2,18 @@ x-common-config: &common-config
   build:
     context: .
     dockerfile: Dockerfile
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - NET_RAW
+    - AUDIT_WRITE
+  tmpfs:
+    - /tmp:noexec,nodev,nosuid,size=100m
+    - /run:noexec,nodev,nosuid,size=50m
   volumes:
     - ~/.nanobot:/root/.nanobot
+  logging:
+    driver: local
 
 services:
   nanobot-gateway:
@@ -18,10 +28,12 @@ services:
         limits:
           cpus: '1'
           memory: 1G
+          pids: 200
         reservations:
           cpus: '0.25'
           memory: 256M
-  
+    pids_limit: 200
+
   nanobot-cli:
     <<: *common-config
     profiles:
@@ -29,3 +41,25 @@ services:
     command: ["status"]
     stdin_open: true
     tty: true
+
+  signal-cli-rest-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    container_name: signal-cli-rest-api
+    profiles:
+      - signal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - NET_RAW
+      - AUDIT_WRITE
+    pids_limit: 100
+    tmpfs:
+      - /tmp:noexec,nodev,nosuid,size=50m
+      - /run:noexec,nodev,nosuid,size=25m
+    environment:
+      - MODE=json-rpc
+    ports:
+      - "8090:8080"
+    volumes:
+      - ~/.nanobot/signal-data:/home/.local/share/signal-cli
+    restart: unless-stopped
