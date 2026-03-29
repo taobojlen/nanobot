@@ -12,6 +12,7 @@ x-common-config: &common-config
     - /run:noexec,nodev,nosuid,size=50m
   volumes:
     - agent-home:/root
+    - ./.nanobot:/root/.nanobot
   logging:
     driver: local
 
