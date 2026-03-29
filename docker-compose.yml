@@ -11,7 +11,7 @@ x-common-config: &common-config
     - /tmp:noexec,nodev,nosuid,size=100m
     - /run:noexec,nodev,nosuid,size=50m
   volumes:
-    - ./.nanobot:/root/.nanobot
+    - agent-home:/root
   logging:
     driver: local
 
@@ -97,3 +97,4 @@ services:
 
 volumes:
   oura-mcp-credentials:
+  agent-home:
