@@ -5,4 +5,7 @@ set -e
 # are writable by the host user (who may not be root).
 umask 0000
 
-exec nanobot "$@"
+# Start cron daemon in background
+cron
+
+exec tini -- nanobot "$@"

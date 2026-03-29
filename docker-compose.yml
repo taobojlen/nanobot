@@ -11,7 +11,7 @@ x-common-config: &common-config
     - /tmp:noexec,nodev,nosuid,size=100m
     - /run:noexec,nodev,nosuid,size=50m
   volumes:
-    - ~/.nanobot:/root/.nanobot
+    - ./.nanobot:/root/.nanobot
   logging:
     driver: local
 
@@ -21,6 +21,9 @@ services:
     <<: *common-config
     command: ["gateway"]
     restart: unless-stopped
+    depends_on:
+      oura-mcp:
+        condition: service_healthy
     ports:
       - 18790:18790
     deploy:
@@ -42,24 +45,55 @@ services:
     stdin_open: true
     tty: true
 
-  signal-cli-rest-api:
-    image: bbernhard/signal-cli-rest-api:latest
-    container_name: signal-cli-rest-api
-    profiles:
-      - signal
+  oura-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.oura-mcp
+    container_name: oura-mcp
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - NET_RAW
       - AUDIT_WRITE
-    pids_limit: 100
     tmpfs:
-      - /tmp:noexec,nodev,nosuid,size=50m
+      - /tmp:noexec,nodev,nosuid,size=100m
+    environment:
+      - OURA_CLIENT_ID=${OURA_CLIENT_ID}
+      - OURA_CLIENT_SECRET=${OURA_CLIENT_SECRET}
+    volumes:
+      - oura-mcp-credentials:/root/.oura-mcp
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); http.get('http://localhost:8000/healthz', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  signal-cli-rest-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    container_name: signal-cli-rest-api
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - NET_RAW
+      - AUDIT_WRITE
+    tmpfs:
       - /run:noexec,nodev,nosuid,size=25m
     environment:
       - MODE=json-rpc
     ports:
       - "8090:8080"
     volumes:
-      - ~/.nanobot/signal-data:/home/.local/share/signal-cli
+      - ./.nanobot/signal-data:/home/.local/share/signal-cli
     restart: unless-stopped
+
+volumes:
+  oura-mcp-credentials:

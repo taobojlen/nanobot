@@ -2,6 +2,7 @@
 .assets
 .docs
 .env
+.nanobot/
 *.pyc
 dist/
 build/
